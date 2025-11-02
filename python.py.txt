@@ -1,0 +1,31 @@
+import sqlite3,requests,time,datetime
+class DBError(Exception):pass
+class WeatherDB:
+    def __init__(self,db="weather.db"):
+        self.conn=sqlite3.connect(db)
+        self.cur=self.conn.cursor()
+        self.cur.execute("CREATE TABLE IF NOT EXISTS weather(dt TEXT,temp REAL)")
+        self.conn.commit()
+    def insert(self,dt,temp):
+        self.cur.execute("INSERT INTO weather(dt,temp)VALUES(?,?)",(dt,temp))
+        self.conn.commit()
+    def close(self):self.conn.close()
+class WeatherFetcher:
+    def __init__(self,url):self.url=url
+    def fetch_temp(self):
+        r=requests.get(self.url)
+        if r.status_code!=200:raise DBError("Ошибка запроса")
+        d=r.json()
+        return d["current"]["temperature"]
+def main():
+    db=WeatherDB()
+    f=WeatherFetcher("https://api.open-meteo.com/v1/forecast?latitude=51.17&longitude=71.43&current_weather=true")
+    try:
+        while True:
+            t=f.fetch_temp()
+            dt=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            db.insert(dt,t)
+            print(dt,t)
+            time.sleep(1800)
+    except KeyboardInterrupt:db.close()
+if __name__=="__main__":main()
